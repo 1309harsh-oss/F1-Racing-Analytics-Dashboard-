@@ -1,0 +1,347 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Racing Analytics Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root {
+  --bg: #090c12;
+  --card: #151d29;
+  --red: #f04452;
+  --cyan: #36d6e7;
+  --text: #f3f5f8;
+  --muted: #9ba8b8;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, sans-serif;
+}
+header {
+  padding: 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  border-bottom: 1px solid #283344;
+}
+h1 { margin: 0; font-size: 28px; }
+header p, .muted { color: var(--muted); }
+select, button {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid #354154;
+  cursor: pointer;
+}
+main { max-width: 1400px; margin: auto; padding: 24px; }
+.kpis, .grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid #283344;
+  padding: 20px;
+  border-radius: 14px;
+  min-width: 0;
+}
+.kpi h3 { color: var(--muted); font-size: 13px; }
+.kpi strong { font-size: 30px; }
+.grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+.chart { height: 280px; }
+.wide { grid-column: 1 / -1; }
+table { width: 100%; border-collapse: collapse; }
+th, td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #283344;
+}
+th { color: var(--cyan); }
+.table-wrap { overflow-x: auto; }
+footer {
+  text-align: center;
+  color: var(--muted);
+  padding: 25px;
+}
+@media(max-width: 800px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .grid { grid-template-columns: 1fr; }
+  .wide { grid-column: auto; }
+}
+@media(max-width: 420px) {
+  main { padding: 12px; }
+  .card { padding: 12px; }
+  h1 { font-size: 22px; }
+}
+</style>
+</head>
+
+<body>
+<header>
+  <div>
+    <h1>🏎️ F1 Racing Analytics</h1>
+    <p>Motorsport Intelligence Dashboard</p>
+  </div>
+  <div>
+    <label for="season">Season: </label>
+    <select id="season">
+      <option value="all">All Seasons</option>
+      <option value="2023">2023</option>
+      <option value="2024">2024</option>
+      <option value="2025">2025</option>
+    </select>
+    <button id="reset">Reset</button>
+  </div>
+</header>
+
+<main>
+  <h2>Season Overview</h2>
+
+  <section class="kpis">
+    <div class="card kpi">
+      <h3>Race Wins</h3>
+      <strong id="wins">0</strong>
+    </div>
+    <div class="card kpi">
+      <h3>Drivers</h3>
+      <strong id="drivers">0</strong>
+    </div>
+    <div class="card kpi">
+      <h3>Constructors</h3>
+      <strong id="teams">0</strong>
+    </div>
+    <div class="card kpi">
+      <h3>DNF Records</h3>
+      <strong id="dnfs">0</strong>
+    </div>
+  </section>
+
+  <section class="grid">
+    <article class="card">
+      <h3>Top Drivers by Wins</h3>
+      <div class="chart"><canvas id="driverChart"></canvas></div>
+    </article>
+
+    <article class="card">
+      <h3>Constructor Points</h3>
+      <div class="chart"><canvas id="teamChart"></canvas></div>
+    </article>
+
+    <article class="card">
+      <h3>Wins by Season</h3>
+      <div class="chart"><canvas id="seasonChart"></canvas></div>
+    </article>
+
+    <article class="card">
+      <h3>Wet vs Dry Races</h3>
+      <div class="chart"><canvas id="weatherChart"></canvas></div>
+    </article>
+
+    <article class="card wide">
+      <h3>Race Results</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Season</th>
+              <th>Driver</th>
+              <th>Constructor</th>
+              <th>Position</th>
+              <th>Points</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody id="results"></tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+</main>
+
+<footer>
+  F1 Racing Analytics | HTML, CSS, JavaScript & Chart.js
+</footer>
+
+<script>
+// DEMO DATA: Replace with your actual race dataset.
+const races = [
+  {season:2023,driver:"Max Verstappen",team:"Red Bull Racing",
+   position:1,points:25,wet:false},
+  {season:2023,driver:"Sergio Perez",team:"Red Bull Racing",
+   position:2,points:18,wet:false},
+  {season:2023,driver:"Lewis Hamilton",team:"Mercedes",
+   position:3,points:15,wet:false},
+  {season:2024,driver:"Lando Norris",team:"McLaren",
+   position:1,points:25,wet:true},
+  {season:2024,driver:"Max Verstappen",team:"Red Bull Racing",
+   position:2,points:18,wet:true},
+  {season:2024,driver:"Charles Leclerc",team:"Ferrari",
+   position:3,points:15,wet:true},
+  {season:2025,driver:"Oscar Piastri",team:"McLaren",
+   position:1,points:25,wet:false},
+  {season:2025,driver:"Charles Leclerc",team:"Ferrari",
+   position:null,points:0,wet:false},
+  {season:2025,driver:"George Russell",team:"Mercedes",
+   position:2,points:18,wet:false}
+];
+
+const colors = ["#f04452","#36d6e7","#5be0a2","#a78bfa"];
+
+const charts = {};
+
+function totalBy(rows, key, valueFn) {
+  return rows.reduce((result, row) => {
+    const keyName = row[key];
+    result[keyName] = (result[keyName] || 0) + valueFn(row);
+    return result;
+  }, {});
+}
+
+function drawChart(id, type, labels, values, color, horizontal=false) {
+  if (charts[id]) charts[id].destroy();
+
+  charts[id] = new Chart(document.getElementById(id), {
+    type,
+    data: {
+      labels,
+      datasets: [{
+        label: "Records",
+        data: values,
+        backgroundColor: color,
+        borderColor: color,
+        borderWidth: 2,
+        borderRadius: 5,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: horizontal ? "y" : "x",
+      plugins: {
+        legend: { display: type === "doughnut" }
+      },
+      scales: type === "doughnut" ? {} : {
+        x: { ticks: { color: "#9ba8b8" },
+             grid: { color: "#283344" } },
+        y: { beginAtZero: true,
+             ticks: { color: "#9ba8b8" },
+             grid: { color: "#283344" } }
+      }
+    }
+  });
+}
+
+function renderDashboard() {
+  const selected = document.getElementById("season").value;
+
+  const filtered = races.filter(r =>
+    selected === "all" || String(r.season) === selected
+  );
+
+  const wins = filtered.filter(r => r.position === 1);
+  const dnfs = filtered.filter(r => r.position === null);
+
+  document.getElementById("wins").textContent = wins.length;
+  document.getElementById("drivers").textContent =
+    new Set(filtered.map(r => r.driver)).size;
+  document.getElementById("teams").textContent =
+    new Set(filtered.map(r => r.team)).size;
+  document.getElementById("dnfs").textContent = dnfs.length;
+
+  const driverWins = totalBy(wins, "driver", () => 1);
+  const topDrivers = Object.entries(driverWins)
+    .sort((a,b) => b[1] - a[1]);
+
+  drawChart(
+    "driverChart", "bar",
+    topDrivers.map(x => x[0]),
+    topDrivers.map(x => x[1]),
+    colors[0], true
+  );
+
+  const teamPoints = totalBy(filtered, "team", r => r.points);
+  const topTeams = Object.entries(teamPoints)
+    .sort((a,b) => b[1] - a[1]);
+
+  drawChart(
+    "teamChart", "bar",
+    topTeams.map(x => x[0]),
+    topTeams.map(x => x[1]),
+    colors[1], true
+  );
+
+  const seasonWins = totalBy(
+    races.filter(r => r.position === 1),
+    "season", () => 1
+  );
+
+  const years = selected === "all"
+    ? Object.keys(seasonWins).sort()
+    : [selected];
+
+  drawChart(
+    "seasonChart", "line",
+    years,
+    years.map(y => seasonWins[y] || 0),
+    colors[0]
+  );
+
+  const wet = filtered.filter(r => r.wet).length;
+  const dry = filtered.length - wet;
+
+  drawChart(
+    "weatherChart", "doughnut",
+    ["Wet", "Dry"],
+    [wet, dry],
+    [colors[1], colors[3]]
+  );
+
+  const tbody = document.getElementById("results");
+  tbody.replaceChildren();
+
+  filtered.forEach(r => {
+    const tr = document.createElement("tr");
+
+    [
+      r.season,
+      r.driver,
+      r.team,
+      r.position ?? "DNF",
+      r.points,
+      r.position === null ? "Did Not Finish" : "Classified"
+    ].forEach(value => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById("season")
+  .addEventListener("change", renderDashboard);
+
+document.getElementById("reset").addEventListener("click", () => {
+  document.getElementById("season").value = "all";
+  renderDashboard();
+});
+
+renderDashboard();
+</script>
+</body>
+</html>
